@@ -253,9 +253,9 @@
     const pagoRem = Math.max(base - tuCom, 0);
     const eurKg = kilos > 0 ? pagoRem / kilos : 0;
 
-    g('.totalVenta').textContent = fmt€(totalVenta, decE);
-    g('.tuCom').textContent = fmt€(tuCom, decE);
-    g('.pagoRem').textContent = fmt€(pagoRem, decE);
+    g('.totalVenta').textContent = fmtEur(totalVenta, decE);
+    g('.tuCom').textContent = fmtEur(tuCom, decE);
+    g('.pagoRem').textContent = fmtEur(pagoRem, decE);
     g('.eurKg').textContent = (kilos>0)? new Intl.NumberFormat('es-ES',{minimumFractionDigits:decKg,maximumFractionDigits:decKg}).format(eurKg) + ' €/kg' : '—';
   }
 
