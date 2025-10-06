@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Calculadora Remitente – €/kg con porte y comisión</title>
+<style>
+  :root { --bg:#0f172a; --panel:#111827; --muted:#9aa3b2; --ink:#e5e7eb; --accent:#22c55e; --danger:#ef4444; --line:#1f2937; }
+  *{box-sizing:border-box} html,body{height:100%}
+  body{margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Helvetica,Arial,sans-serif; background:linear-gradient(160deg,#0b1220,#0a0f1a); color:var(--ink)}
+  .wrap{max-width:1100px; margin:32px auto; padding:0 16px}
+  .card{background:rgba(17,24,39,.8); border:1px solid var(--line); border-radius:14px; box-shadow:0 10px 30px rgba(0,0,0,.35)}
+  header{display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:16px}
+  header h1{font-size:20px; margin:0; font-weight:700}
+  .muted{color:var(--muted); font-size:13px}
+  .controls{display:flex; flex-wrap:wrap; gap:10px}
+  label.small{display:flex; flex-direction:column; gap:6px; font-size:12px; color:var(--muted)}
+  input[type="number"]{appearance:textfield}
+  input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{appearance:none; margin:0}
+  input,button{border-radius:10px; border:1px solid var(--line); padding:10px 12px; background:#0b1020; color:var(--ink)}
+  input{min-width:120px}
+  button{cursor:pointer}
+  .btn{border-color:#334155}
+  .btn-accent{background:var(--accent); color:#062910; border-color:#16a34a}
+  .btn-ghost{background:transparent}
+  .btn-danger{background:var(--danger); border-color:#b91c1c}
+  .toolbar{display:flex; gap:8px; flex-wrap:wrap}
+  table{width:100%; border-collapse:separate; border-spacing:0; overflow:hidden; border-radius:12px; border:1px solid var(--line)}
+  thead th{position:sticky; top:0; background:#0f172a; z-index:1; font-weight:600; font-size:12px; color:#cbd5e1; padding:10px 8px; text-align:left; border-bottom:1px solid var(--line)}
+  tbody td{padding:8px; border-bottom:1px solid #1e293b; vertical-align:middle; font-size:14px}
+  tbody tr:hover{background:rgba(148,163,184,.06)}
+  tfoot td{padding:12px 10px; background:#0a1222; border-top:1px solid var(--line); font-weight:600}
+  .right{text-align:right}
+  .mono{font-variant-numeric:tabular-nums; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace}
+  .pill{display:inline-block; padding:.2rem .5rem; border-radius:999px; background:#0b1b33; border:1px solid #1f2f4a; font-size:12px; color:#a7b3c7}
+  .grid{display:grid; gap:14px}
+  .grid-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+  @media (max-width:860px){ .grid-2{grid-template-columns:1fr} table{font-size:13px} input{min-width:80px} }
+  .note{margin-top:6px; font-size:12px; color:#94a3b8}
+  .sum{display:flex; gap:14px; flex-wrap:wrap}
+  .sum .box{flex:1 1 200px; background:#0b1326; border:1px solid var(--line); border-radius:12px; padding:12px}
+  .sum h3{margin:0 0 6px 0; font-size:12px; color:#93c5fd; font-weight:600}
+  .sum .val{font-size:18px; font-weight:700}
+  .danger-link{color:#fca5a5; text-decoration:underline; cursor:pointer}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>Calculadora de pago a remitente (porte + comisión)</h1>
+        <div class="muted">Introduce tus líneas (palets). Se descuenta el <b>porte</b> y tu <b>comisión</b> para obtener el pago al remitente y el €/kg real.</div>
+      </div>
+      <div class="toolbar">
+        <button class="btn btn-accent" id="addRowBtn">+ Añadir línea</button>
+        <button class="btn" id="exportCsvBtn">Exportar CSV</button>
+        <button class="btn btn-ghost" id="clearAllBtn">Limpiar todo</button>
+      </div>
+    </header>
+
+    <div class="card" style="padding:14px; margin-bottom:14px;">
+      <div class="grid grid-2">
+        <div class="controls">
+          <label class="small">
+            Comisión (%) por defecto
+            <input type="number" id="defaultComision" step="0.01" min="0" max="100" value="12">
+          </label>
+          <label class="small">
+            Porte fijo (€) por defecto
+            <input type="number" id="defaultPorte" step="0.01" min="0" value="55">
+          </label>
+          <div class="note">Estos valores se aplican a nuevas líneas. Puedes cambiarlos por línea.</div>
+        </div>
+        <div class="controls">
+          <label class="small">
+            Decimales €/kg
+            <input type="number" id="decKg" min="2" max="6" value="4">
+          </label>
+          <label class="small">
+            Decimales € totales
+            <input type="number" id="dec€" min="0" max="2" value="2">
+          </label>
+          <div class="note">La app guarda tus ajustes automáticamente.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="overflow:auto;">
+      <table id="tabla">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Descripción</th>
+            <th class="right">Precio venta (€/kg)</th>
+            <th class="right">Kilos</th>
+            <th class="right">Porte (€)</th>
+            <th class="right">Comisión (%)</th>
+            <th class="right">Total venta (€)</th>
+            <th class="right">Tu comisión (€)</th>
+            <th class="right">Pago remitente (€)</th>
+            <th class="right">€/kg remitente</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="tbody">
+          <!-- filas dinámicas -->
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="6" class="right">Totales</td>
+            <td class="right mono" id="tTotalVenta">0,00 €</td>
+            <td class="right mono" id="tComision">0,00 €</td>
+            <td class="right mono" id="tPagoRem">0,00 €</td>
+            <td class="right mono" id="tAvgKg">0,0000 €/kg</td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <div class="sum" style="margin-top:14px;">
+      <div class="box">
+        <h3>Resumen</h3>
+        <div class="val mono" id="sumResumen">—</div>
+        <div class="note">Promedio ponderado €/kg remitente sobre todos los kilos.</div>
+      </div>
+      <div class="box">
+        <h3>Costes de porte acumulados</h3>
+        <div class="val mono" id="sumPorte">0,00 €</div>
+        <div class="note">Suma de portes de todas las líneas.</div>
+      </div>
+      <div class="box">
+        <h3>Tus comisiones totales</h3>
+        <div class="val mono" id="sumComisiones">0,00 €</div>
+        <div class="note">Ya calculadas sobre (venta − porte).</div>
+      </div>
+    </div>
+
+    <p class="note" style="margin-top:10px">
+      Fórmula por línea: <span class="pill mono">pagoRem = (precio·kg − porte) · (1 − comisión%)</span>
+      &nbsp;&middot;&nbsp;
+      <span class="pill mono">€/kg remitente = pagoRem / kg</span>
+    </p>
+  </div>
+
+<script>
+(function(){
+  const fmt€ = (v, d=2)=> new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR',minimumFractionDigits:d,maximumFractionDigits:d}).format((+v||0));
+  const fmtKg€ = (v, d=4)=> `${new Intl.NumberFormat('es-ES',{minimumFractionDigits:d,maximumFractionDigits:d}).format((+v||0))} €/kg`;
+
+  const els = {
+    tbody: document.getElementById('tbody'),
+    tTotalVenta: document.getElementById('tTotalVenta'),
+    tComision: document.getElementById('tComision'),
+    tPagoRem: document.getElementById('tPagoRem'),
+    tAvgKg: document.getElementById('tAvgKg'),
+    sumResumen: document.getElementById('sumResumen'),
+    sumPorte: document.getElementById('sumPorte'),
+    sumComisiones: document.getElementById('sumComisiones'),
+    addRowBtn: document.getElementById('addRowBtn'),
+    exportCsvBtn: document.getElementById('exportCsvBtn'),
+    clearAllBtn: document.getElementById('clearAllBtn'),
+    defCom: document.getElementById('defaultComision'),
+    defPorte: document.getElementById('defaultPorte'),
+    decKg: document.getElementById('decKg'),
+    decE: document.getElementById('dec€'),
+    tabla: document.getElementById('tabla'),
+  };
+
+  // Persistencia simple
+  const LS_KEY = 'calcRemitente.v1';
+  const loadState = () => {
+    try {
+      const raw = localStorage.getItem(LS_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+  };
+  const saveState = () => {
+    const rows = [...els.tbody.querySelectorAll('tr')].map(tr=>{
+      const g = q=> tr.querySelector(q);
+      return {
+        desc: g('.desc').value || '',
+        precio: +g('.precio').value || 0,
+        kilos: +g('.kilos').value || 0,
+        porte: +g('.porte').value || 0,
+        com: +g('.com').value || 0,
+      };
+    });
+    const st = {
+      rows,
+      defCom: +els.defCom.value || 0,
+      defPorte: +els.defPorte.value || 0,
+      decKg: +els.decKg.value || 4,
+      decE: +els.decE.value || 2,
+    };
+    localStorage.setItem(LS_KEY, JSON.stringify(st));
+  };
+
+  function addRow(data={}){
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="mono idx"></td>
+      <td><input class="desc" placeholder="Descripción (opcional)" /></td>
+      <td class="right"><input type="number" step="0.0001" min="0" class="precio mono" /></td>
+      <td class="right"><input type="number" step="0.01" min="0" class="kilos mono" /></td>
+      <td class="right"><input type="number" step="0.01" min="0" class="porte mono" /></td>
+      <td class="right"><input type="number" step="0.01" min="0" max="100" class="com mono" /></td>
+      <td class="right mono totalVenta">—</td>
+      <td class="right mono tuCom">—</td>
+      <td class="right mono pagoRem">—</td>
+      <td class="right mono eurKg">—</td>
+      <td class="right"><button class="btn btn-danger del">🗑</button></td>
+    `;
+    els.tbody.appendChild(tr);
+
+    const set = (cls, val, fallback)=> tr.querySelector('.'+cls).value = (val ?? fallback);
+    set('desc', data.desc ?? '', '');
+    set('precio', data.precio, 0);
+    set('kilos', data.kilos, 0);
+    set('porte', data.porte, +els.defPorte.value || 55);
+    set('com', data.com, +els.defCom.value || 12);
+
+    tr.addEventListener('input', ()=> { computeRow(tr); computeTotals(); saveState(); });
+    tr.querySelector('.del').addEventListener('click', ()=>{
+      tr.remove(); renumber(); computeTotals(); saveState();
+    });
+
+    computeRow(tr);
+    renumber();
+    computeTotals();
+    saveState();
+  }
+
+  function renumber(){
+    [...els.tbody.querySelectorAll('tr')].forEach((tr,i)=>{
+      tr.querySelector('.idx').textContent = i+1;
+    });
+  }
+
+  function computeRow(tr){
+    const g = q=> tr.querySelector(q);
+    const precio = +g('.precio').value || 0;
+    const kilos = +g('.kilos').value || 0;
+    const porte = +g('.porte').value || 0;
+    const comPct = (+g('.com').value || 0) / 100;
+
+    const decE = +els.decE.value || 2;
+    const decKg = +els.decKg.value || 4;
+
+    const totalVenta = precio * kilos;
+    const base = Math.max(totalVenta - porte, 0); // nunca negativo
+    const tuCom = base * comPct;
+    const pagoRem = Math.max(base - tuCom, 0);
+    const eurKg = kilos > 0 ? pagoRem / kilos : 0;
+
+    g('.totalVenta').textContent = fmt€(totalVenta, decE);
+    g('.tuCom').textContent = fmt€(tuCom, decE);
+    g('.pagoRem').textContent = fmt€(pagoRem, decE);
+    g('.eurKg').textContent = (kilos>0)? new Intl.NumberFormat('es-ES',{minimumFractionDigits:decKg,maximumFractionDigits:decKg}).format(eurKg) + ' €/kg' : '—';
+  }
+
+  function computeTotals(){
+    const rows = [...els.tbody.querySelectorAll('tr')];
+
+    const decE = +els.decE.value || 2;
+    const decKg = +els.decKg.value || 4;
+
+    let totalVenta=0, totalPorte=0, totalCom=0, totalPagoRem=0, totalKilos=0;
+
+    rows.forEach(tr=>{
+      const precio = +tr.querySelector('.precio').value || 0;
+      const kilos  = +tr.querySelector('.kilos').value || 0;
+      const porte  = +tr.querySelector('.porte').value || 0;
+      const comPct = (+tr.querySelector('.com').value || 0)/100;
+
+      const venta = precio*kilos;
+      const base = Math.max(venta-porte,0);
+      const com = base*comPct;
+      const pago = Math.max(base-com,0);
+
+      totalVenta += venta;
+      totalPorte += porte;
+      totalCom   += com;
+      totalPagoRem += pago;
+      totalKilos += kilos;
+    });
+
+    const avgKg = totalKilos>0 ? totalPagoRem/totalKilos : 0;
+
+    els.tTotalVenta.textContent = fmt€(totalVenta, decE);
+    els.tComision.textContent   = fmt€(totalCom, decE);
+    els.tPagoRem.textContent    = fmt€(totalPagoRem, decE);
+    els.tAvgKg.textContent      = fmtKg€(avgKg, decKg);
+
+    els.sumResumen.textContent  = `${fmtKg€(avgKg, decKg)} · ${new Intl.NumberFormat('es-ES').format(totalKilos)} kg`;
+    els.sumPorte.textContent    = fmt€(totalPorte, decE);
+    els.sumComisiones.textContent = fmt€(totalCom, decE);
+  }
+
+  // Export CSV
+  function exportCSV(){
+    const header = ['#','Descripción','Precio €/kg','Kilos','Porte €','Comisión %','Total venta €','Tu comisión €','Pago remitente €','€/kg remitente'];
+    const rows = [...els.tbody.querySelectorAll('tr')].map((tr,i)=>{
+      const getText = cls => tr.querySelector('.'+cls)?.textContent?.replace(/\s*€\/kg|\s*€/g,'').replace(/\./g,'').replace(',', '.') ?? '';
+      const precio = tr.querySelector('.precio').value;
+      const kilos  = tr.querySelector('.kilos').value;
+      const porte  = tr.querySelector('.porte').value;
+      const com    = tr.querySelector('.com').value;
+      const totalVenta = getText('totalVenta');
+      const tuCom = getText('tuCom');
+      const pagoRem = getText('pagoRem');
+      const eurKg = getText('eurKg');
+      const desc = tr.querySelector('.desc').value.replace(/"/g,'""');
+      return [i+1, `"${desc}"`, precio, kilos, porte, com, totalVenta, tuCom, pagoRem, eurKg];
+    });
+    const totals = [
+      '', 'TOTALES','','','',
+      '',
+      els.tTotalVenta.textContent.replace(/\./g,'').replace(',','.').replace(' €',''),
+      els.tComision.textContent.replace(/\./g,'').replace(',','.').replace(' €',''),
+      els.tPagoRem.textContent.replace(/\./g,'').replace(',','.').replace(' €',''),
+      els.tAvgKg.textContent.replace(/\./g,'').replace(',','.').replace(' €/kg',''),
+    ];
+    const csv = [header, ...rows, totals].map(r=>r.join(',')).join('\n');
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = Object.assign(document.createElement('a'), {href:url, download:'remitentes.csv'});
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url), 2000);
+  }
+
+  // Limpiar todo
+  function clearAll(){
+    if(!confirm('¿Vaciar todas las líneas y ajustes guardados?')) return;
+    els.tbody.innerHTML = '';
+    addRow(); // deja una línea vacía por comodidad
+    computeTotals();
+    localStorage.removeItem(LS_KEY);
+  }
+
+  // Eventos globales
+  els.addRowBtn.addEventListener('click', ()=> addRow());
+  els.exportCsvBtn.addEventListener('click', exportCSV);
+  els.clearAllBtn.addEventListener('click', clearAll);
+
+  [els.defCom, els.defPorte, els.decKg, els.decE].forEach(inp=>{
+    inp.addEventListener('input', ()=>{
+      // Reaplicar formato y/o defaults a filas vacías de forma no intrusiva
+      [...els.tbody.querySelectorAll('tr')].forEach(tr=> computeRow(tr));
+      computeTotals(); saveState();
+    });
+  });
+
+  // Inicializar
+  const state = loadState();
+  if(state){
+    els.defCom.value = state.defCom ?? 12;
+    els.defPorte.value = state.defPorte ?? 55;
+    els.decKg.value = state.decKg ?? 4;
+    els.decE.value = state.decE ?? 2;
+    (state.rows && state.rows.length ? state.rows : [{}]).forEach(r => addRow(r));
+  } else {
+    addRow({ precio: 1.00, kilos: 500, porte: 55, com: 12, desc: 'Ejemplo' });
+  }
+})();
+</script>
+</body>
+</html>
