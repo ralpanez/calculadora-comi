@@ -78,7 +78,7 @@
           </label>
           <label class="small">
             Decimales € totales
-            <input type="number" id="dec€" min="0" max="2" value="2">
+            <input type="number" id="decEur" min="0" max="2" value="2">
           </label>
           <div class="note">La app guarda tus ajustes automáticamente.</div>
         </div>
@@ -145,8 +145,8 @@
 
 <script>
 (function(){
-  const fmt€ = (v, d=2)=> new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR',minimumFractionDigits:d,maximumFractionDigits:d}).format((+v||0));
-  const fmtKg€ = (v, d=4)=> `${new Intl.NumberFormat('es-ES',{minimumFractionDigits:d,maximumFractionDigits:d}).format((+v||0))} €/kg`;
+  const fmtEur = (v, d=2)=> new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR',minimumFractionDigits:d,maximumFractionDigits:d}).format((+v||0));
+  const fmtKgEur = (v, d=4)=> `${new Intl.NumberFormat('es-ES',{minimumFractionDigits:d,maximumFractionDigits:d}).format((+v||0))} €/kg`;
 
   const els = {
     tbody: document.getElementById('tbody'),
@@ -163,7 +163,7 @@
     defCom: document.getElementById('defaultComision'),
     defPorte: document.getElementById('defaultPorte'),
     decKg: document.getElementById('decKg'),
-    decE: document.getElementById('dec€'),
+    decE: document.getElementById('decEur'),
     tabla: document.getElementById('tabla'),
   };
 
@@ -287,14 +287,14 @@
 
     const avgKg = totalKilos>0 ? totalPagoRem/totalKilos : 0;
 
-    els.tTotalVenta.textContent = fmt€(totalVenta, decE);
-    els.tComision.textContent   = fmt€(totalCom, decE);
-    els.tPagoRem.textContent    = fmt€(totalPagoRem, decE);
-    els.tAvgKg.textContent      = fmtKg€(avgKg, decKg);
+    els.tTotalVenta.textContent = fmtEur(totalVenta, decE);
+    els.tComision.textContent   = fmtEur(totalCom, decE);
+    els.tPagoRem.textContent    = fmtEur(totalPagoRem, decE);
+    els.tAvgKg.textContent      = fmtKgEur(avgKg, decKg);
 
-    els.sumResumen.textContent  = `${fmtKg€(avgKg, decKg)} · ${new Intl.NumberFormat('es-ES').format(totalKilos)} kg`;
-    els.sumPorte.textContent    = fmt€(totalPorte, decE);
-    els.sumComisiones.textContent = fmt€(totalCom, decE);
+    els.sumResumen.textContent  = `${fmtKgEur(avgKg, decKg)} · ${new Intl.NumberFormat('es-ES').format(totalKilos)} kg`;
+    els.sumPorte.textContent    = fmtEur(totalPorte, decE);
+    els.sumComisiones.textContent = fmtEur(totalCom, decE);
   }
 
   // Export CSV
